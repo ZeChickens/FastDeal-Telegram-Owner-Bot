@@ -377,6 +377,7 @@ class Message:
         self.order_description_post_date = "<i>Замовлення на дату</i>"
         self.order_description_price = "<i>Ціна</i>"
         self.order_description_order_id = "<i>ID замовлення</i>"
+        self.order_description_post_link = "Пост"
         self.order_notification_new = "Нове замовлення!"
         self.order_notification_rejected = "Замовлення не виконано!"
         self.order_notification_completed = "Замовлення виконано успішно!"
@@ -421,9 +422,12 @@ class Message:
         self.channel_statistic_refreshed = "Статитистика оновлена"
 
         ##############    BUTTONS  #####################
+        self.button_back = "Назад"
+
         self.button_owner_reject_reasons = ["Не підходить дата", "Контент реклами"]
         self.button_owner_order_rejected = "Ви успішно відмовились від замовлення!і"
 
+        self.button_channel_my = "Мої канали"
         self.button_channel_add_new = "Додати канал"
         self.button_channel_forbidden_topics = "❗️Заборонені теми❗️"
         self.button_channel_statistic = "Статистика"
@@ -436,6 +440,7 @@ class Message:
         self.button_channel_change_price = "Змінити ціну"
         self.button_channel_change_stats = "Оновити статистику"
 
+        self.button_order_my = "Мої замовлення"
         self.button_order_send_to_redaction = "Надіслати редакції"
         
         ##############    ETC  #####################

@@ -19,7 +19,10 @@ class Channel(Section):
         chat_id = call.message.chat.id
 
         if action == "Select":
-            self.send_channel_content(chat_id=chat_id, channel_id=channel_id)
+            self.send_channel_content(call=call, channel_id=channel_id)
+
+        elif action == "List":
+            self.send_channel_list(call=call)
 
         elif action == "ForbiddenTopics":
             self.send_channel_forbidden_topics(call=call, channel_id=channel_id)
@@ -43,7 +46,7 @@ class Channel(Section):
             self.change_photo(chat_id=chat_id, channel_id=channel_id)
 
         elif action == "TagList":
-            self.send_channel_tags_list(chat_id=chat_id, channel_id=channel_id)
+            self.send_channel_tags_list(call=call, channel_id=channel_id)
 
         elif action == "ChangeTag":
             tag_id = call.data.split(";")[3]
@@ -55,22 +58,26 @@ class Channel(Section):
         elif action == "ChangePrice":
             self.change_price(chat_id=chat_id, channel_id=channel_id)
 
-        elif action == "UpdateStatisticChannel":
+        elif action == "UpdateStatistic":
             self.update_statistic(call=call, channel_id=channel_id)
-
-        elif action == "UpdateStatisticAll":
-            self.update_statistic(call=call)
 
         elif action == "UpdateSubscribers": # Maybe better to update it every day
             pass
 
         else:
-            self.oops(call)
+            self.in_development(call)
             return
 
         self.bot.answer_callback_query(call.id)
 
-    def send_channel_list(self, chat_id):
+    def send_channel_list(self, chat_id=None, call=None): 
+        """Send channels list. If called from redaction - send all channels\n
+        Specify chat_id if it called through command, otherwise
+        specify call if it called after button pressed.
+        """     
+        if call is not None:
+            chat_id = call.message.chat.id
+
         if chat_id == self.data.REDACTION_CHAT_ID:
             channels = self.data.get_channel()
         else:
@@ -85,32 +92,49 @@ class Channel(Section):
             btn = self.create_channel_button(channel=channel)
             markup.add(btn)
 
-        #add new channel button
+        # add new channel button
         if chat_id != self.data.REDACTION_CHAT_ID:
             add_new_channel_button_text = self.data.message.button_channel_add_new
             add_new_channel_button_callback = self.form_channel_callback(action="Add")
             add_new_channel_button = InlineKeyboardButton(text=add_new_channel_button_text, callback_data=add_new_channel_button_callback)
             markup.add(add_new_channel_button)
+        # change stats
         else:
-            # change stats
             change_stats_btn_text = self.data.message.button_channel_change_stats
-            change_stats_btn_callback = self.form_channel_callback(action="UpdateStatisticAll")
+            change_stats_btn_callback = self.form_channel_callback(action="UpdateStatistic")
             change_stats_btn = InlineKeyboardButton(text=change_stats_btn_text, callback_data=change_stats_btn_callback)
             markup.add(change_stats_btn)
 
-        #delete button
-        markup.add(self.create_delete_button())
+        # if list is called from main menu than send "Back" button
+        if call is not None:
+            back_button_callback = self.form_main_callback(action="Start", prev_msg_action="Edit")
+            back_button = self.create_back_button(callback_data=back_button_callback)
+            markup.add(back_button)
+        else:
+            markup.add(self.create_delete_button())
 
-        self.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
 
-    def send_channel_content(self, chat_id, channel_id):
+        if call is None:
+            self.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
+        else:
+            self.send_message(call=call, text=text, reply_markup=markup)
+
+    def send_channel_content(self, call=None, chat_id=None, channel_id=None):
+        """Send main info about channel.\n
+        Specify call if this function is called after button is pressed.
+        Otherwise, specify chat_id.
+        """
+        if call is not None:
+            chat_id = call.message.chat.id
+            
         current_channel = self.data.get_channel(where={"ChannelID":channel_id})[0]
         
         text, photo = self.create_channel_description(channel=current_channel)
         markup = InlineKeyboardMarkup()
 
         #заборонені теми
-        forbiden_topics_callback = self.form_channel_callback(action="ForbiddenTopics", channel_id=channel_id)
+        forbiden_topics_callback = self.form_channel_callback(action="ForbiddenTopics", channel_id=channel_id, 
+                                                              prev_msg_action="Delete")
         forbiden_topics_text = self.data.message.button_channel_forbidden_topics
         forbiden_topics_btn = InlineKeyboardButton(text=forbiden_topics_text, callback_data=forbiden_topics_callback)
         markup.add(forbiden_topics_btn)
@@ -129,7 +153,7 @@ class Channel(Section):
 
         # Activate & Disactivate channel
         if chat_id != self.REDACTION_CHAT_ID:
-            if current_channel.Status == -1:
+            if current_channel.Status <= 0:
                 activate_channel_btn_text = self.data.message.button_channel_activate
                 activate_channel_btn_callback = self.form_channel_callback(action="Activate", channel_id=channel_id)
                 activate_channel_btn = InlineKeyboardButton(text=activate_channel_btn_text, callback_data=activate_channel_btn_callback)
@@ -146,28 +170,31 @@ class Channel(Section):
             for button in redaction_buttons:
                 markup.add(button)
 
-        # delete button
-        markup.add(self.create_delete_button())
+        # Back button
+        back_button_callback = self.form_channel_callback(action="List", prev_msg_action="Delete")
+        back_button = self.create_back_button(callback_data=back_button_callback)
+        markup.add(back_button)
 
         # send message
-        if photo is not None:
-            self.bot.send_photo(chat_id=chat_id, photo=photo, caption=text, reply_markup=markup, parse_mode="HTML")
+        if call is None:
+            if photo is None:
+                self.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
+            else:
+                self.bot.send_photo(chat_id=chat_id, photo=photo, caption=text, 
+                                    reply_markup=markup, parse_mode="HTML")
         else:
-            self.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup, parse_mode="HTML")
+            self.send_message(call=call, text=text, photo=photo, reply_markup=markup)
 
     def send_channel_forbidden_topics(self, call, channel_id):
-        under_dev = self.data.message.under_development
-        self.bot.answer_callback_query(call.id, text=under_dev)
+        self.in_development(call)
 
     def send_channel_stats(self, call, channel_id):
-        under_dev = self.data.message.under_development
-        self.bot.answer_callback_query(call.id, text=under_dev)
+        self.in_development(call)
 
     def send_channel_reviews(self, call, channel_id):
-        under_dev = self.data.message.under_development
-        self.bot.answer_callback_query(call.id, text=under_dev)
+        self.in_development(call)
 
-    def send_channel_tags_list(self, chat_id, channel_id):
+    def send_channel_tags_list(self, call, channel_id):
         tag_buttons_structure = [2, 2, 2, 2]
         tag_list = self.data.get_tag()[1:-1]
 
@@ -188,14 +215,15 @@ class Channel(Section):
             for tag in range(row):
                 tag_name = tag_list[tag_index].Name
                 tag_id = tag_list[tag_index].TagID
-                callback = self.form_channel_callback(action="ChangeTag", channel_id=channel_id, tag_id=tag_id)
+                callback = self.form_channel_callback(action="ChangeTag", channel_id=channel_id, 
+                                                      tag_id=tag_id, prev_msg_action="Edit")
                 tag_button = InlineKeyboardButton(text=tag_name, callback_data=callback)
                 btn_row += [tag_button]
                 tag_index += 1
             markup.add(*btn_row)
 
         markup.add(self.create_delete_button())
-        self.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup, parse_mode="HTML")
+        self.send_message(call=call, text=text, reply_markup=markup)
 
     def add_channel(self, call):
         chat_id = call.message.chat.id
@@ -208,7 +236,6 @@ class Channel(Section):
 
     def change_channel_status(self, call, channel_id, activate=False, disactivate=False):
         chat_id = call.message.chat.id
-        message_id = call.message.message_id
         channel = self.data.get_channel(where={"ChannelID":channel_id})[0]
         owner = self.data.get_owner(where={"OwnerID":channel.OwnerID})[0]          
 
@@ -224,10 +251,9 @@ class Channel(Section):
                 owner_notification_text = self.data.message.channel_changed_status(channel=channel, activate=False)
                 self.bot.send_message(chat_id=owner.ChatID, text=owner_notification_text, parse_mode="HTML")
 
-        #delete channel description to refresh it
-        self.bot.delete_message(chat_id=chat_id, message_id=message_id)
-        call.data = self.form_channel_callback(action="Select", channel_id=channel_id)
-        self.send_channel_content(chat_id, channel_id)
+        # edit channel description to refresh it
+        call.data = self.form_channel_callback(action="Select", channel_id=channel_id, prev_msg_action="Delete")
+        self.send_channel_content(call=call, channel_id=channel_id)
     
     def change_photo(self, chat_id, channel_id):
         text = self.data.message.channel_input_photo
@@ -236,14 +262,10 @@ class Channel(Section):
         self.bot.register_next_step_handler_by_chat_id(chat_id, callback=self.process_change_photo,
                                                   chat_id_=chat_id, channel_id=channel_id)
 
-    def change_tag(self, call, channel_id, tag_id):
-        chat_id = call.message.chat.id
-        message_id = call.message.message_id
-        
+    def change_tag(self, call, channel_id, tag_id):        
         self.data.update_channel(set_={"TagID":tag_id}, where={"ChannelID":channel_id})
 
-        self.bot.delete_message(chat_id=chat_id, message_id=message_id)
-        self.send_channel_tags_list(chat_id=chat_id, channel_id=channel_id)
+        self.send_channel_tags_list(call=call, channel_id=channel_id)
 
     def change_description(self, chat_id, channel_id):
         pass
@@ -283,7 +305,7 @@ class Channel(Section):
             
             channel_description = channel.full_chat.about
             channel_link = channel_name
-            channel_name = channel_link
+            channel_name = channel.chats[0].title
             channel_subs = channel.full_chat.participants_count
             channel_photo = None
             owner_id = owner.OwnerID
@@ -320,7 +342,7 @@ class Channel(Section):
             self.data.update_channel(set_={"Photo":photo}, where={"ChannelID":channel_id})
 
             self.bot.send_message(chat_id=chat_id, text=text)
-            self.send_channel_content(chat_id, channel_id)
+            self.send_channel_content(chat_id=chat_id, channel_id=channel_id)
         else:            
             #If command executed then reset
             if message.content_type == "text":
@@ -347,7 +369,7 @@ class Channel(Section):
             self.data.update_channel(set_={"Price":price}, where={"ChannelID":channel_id})
 
             self.bot.send_message(chat_id=chat_id, text=text)
-            self.send_channel_content(chat_id, channel_id)
+            self.send_channel_content(chat_id=chat_id, channel_id=channel_id)
             return
         else:
             self.change_price(chat_id, channel_id)
@@ -403,7 +425,7 @@ class Channel(Section):
                 # update subscribers
                 self.data.update_channel(set_={"Subscribers":subscribers}, where={"ChannelID":channel_id})
             except:
-                self.bot.send_message(chat_id=chat_id, text=f"{success_update_text} failed to update!")
+                self.bot.send_message(chat_id=chat_id, text=f"{channel_name} failed to update!")
                 continue
 
             success_update_text = f"{self.data.message.channel_statistic_refreshed} - {channel.Name}"
@@ -413,7 +435,7 @@ class Channel(Section):
             # Refresh channel page if it was one-channel-update
             if len(channel_list) == 1:
                 self.bot.delete_message(chat_id=chat_id, message_id=call.message.message_id)
-                self.send_channel_content(chat_id, channel_id)
+                self.send_channel_content(chat_id=chat_id, channel_id=channel_id)
                 return
         
         self.bot.edit_message_text(chat_id=chat_id, message_id=message.message_id, 
@@ -510,7 +532,7 @@ class Channel(Section):
 
         # update stats
         change_stats_btn_text = self.data.message.button_channel_change_stats
-        change_stats_btn_callback = self.form_channel_callback(action="UpdateStatisticChannel", channel_id=channel_id)
+        change_stats_btn_callback = self.form_channel_callback(action="UpdateStatistic", channel_id=channel_id)
         change_stats_btn = InlineKeyboardButton(text=change_stats_btn_text, callback_data=change_stats_btn_callback)
         buttons += [change_stats_btn]
 
@@ -524,7 +546,8 @@ class Channel(Section):
             return name
          
         channel_btn_text = cut_channel_name(name=channel.Name)
-        channel_btn_callback = self.form_channel_callback(action="Select", channel_id=channel.ChannelID)
+        channel_btn_callback = self.form_channel_callback(action="Select", channel_id=channel.ChannelID,
+                                                          prev_msg_action="Delete")
         channel_btn = InlineKeyboardButton(text=channel_btn_text, callback_data=channel_btn_callback)
 
         return channel_btn

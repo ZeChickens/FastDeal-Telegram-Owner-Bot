@@ -31,7 +31,7 @@ class Redaction(Section):
             self.close_order(call=call, order_id=order_id)
         
         else:
-            self.oops(call)
+            self.in_development(call)
             return
 
         self.bot.answer_callback_query(call.id)
@@ -155,7 +155,7 @@ class Redaction(Section):
         self.bot.delete_message(chat_id=owner_chat_id, message_id=message_id)
 
         #update order
-        rejection_reason_index = int(call.data.split(";")[-1])
+        rejection_reason_index = int(call.data.split(";")[3])
         rejection_reason = self.data.message.button_owner_reject_reasons[rejection_reason_index]
         self.data.update_order(set_={"Status":-2, "OwnerComment":rejection_reason}, where={"OrderID":order_id})
 

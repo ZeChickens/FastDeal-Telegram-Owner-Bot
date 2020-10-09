@@ -42,7 +42,7 @@ class System:
         if client_chat_id == self.REDACTION_CHAT_ID:
             return
 
-        self.data.update_client(set_={"LastInteractionTime":date}, where={"ChatID":client_chat_id})
+        self.data.update_owner(set_={"LastInteractionTime":date}, where={"ChatID":client_chat_id})
 
     def clear(self, chat_id):
         self.bot.clear_step_handler_by_chat_id(chat_id=chat_id)

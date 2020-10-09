@@ -20,6 +20,9 @@ class Order(Section):
         
         if action == "Confirm":
             self.send_confirmation(call=call, order_id=order_id, completion=True)
+
+        elif action == "List":
+            self.send_order_list(call=call)
         
         elif action == "ConfirmationInstruction":
             self.send_confirmation_instruction(call=call, order_id=order_id)
@@ -34,7 +37,7 @@ class Order(Section):
             self.send_order_description(call=call, order_id=order_id)
 
         else:
-            self.oops(call)
+            self.in_development(call)
             return
 
         self.bot.answer_callback_query(call.id)
@@ -87,13 +90,18 @@ class Order(Section):
             else:
                 sleep(60 * 30) # wait 30 minutes for right time
 
-    def send_order_list(self, message):
-        owner_chat_id = message.chat.id
-
-        if owner_chat_id == self.data.REDACTION_CHAT_ID:
+    def send_order_list(self, chat_id=None, call=None): 
+        """Send order list. If called from redaction - send all orders\n
+        Specify chat_id if it called through command, otherwise
+        specify call if it called after button pressed.
+        """     
+        if call is not None:
+            chat_id = call.message.chat.id
+        
+        if chat_id == self.data.REDACTION_CHAT_ID:
             return
         else:
-            owner = self.data.get_owner(where={"ChatID":owner_chat_id})[0]#
+            owner = self.data.get_owner(where={"ChatID":chat_id})[0]#
             orders_list = self.get_all_orders(owner=owner)
 
         markup = InlineKeyboardMarkup()
@@ -101,17 +109,25 @@ class Order(Section):
             for order in element:
                 button = self.create_order_description_button(order=order)
                 markup.add(button)
-        markup.add(self.create_delete_button())
+
+        # if list is called from main menu than send "Back" button
+        if call is not None:
+            back_button_callback = self.form_main_callback(action="Start", prev_msg_action="Edit")
+            back_button = self.create_back_button(callback_data=back_button_callback)
+            markup.add(back_button)
+        else:
+            markup.add(self.create_delete_button())
+
 
         text = self.data.message.order_list
-        self.bot.send_message(chat_id=owner_chat_id, text=text, reply_markup=markup)
+        if call is None:
+            self.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
+        else:
+            self.send_message(call=call, text=text, reply_markup=markup)
 
     def send_order_description(self, call, order_id):
         chat_id = call.message.chat.id
         
-        #do smth with previous message (if needed)
-        self.edit_previous_message(call=call)
-
         order = self.data.get_order(where={"OrderID":order_id})[0]
         text, photo = self.form_order_description(order=order)
 
@@ -139,12 +155,13 @@ class Order(Section):
 
             markup.add(button_confirm, button_reject)
         else:
-            markup.add(self.create_delete_button())
+            # Back button
+            if chat_id != self.data.REDACTION_CHAT_ID:
+                back_button_callback = self.form_order_callback(action="List", order_id=None, prev_msg_action="Delete")
+                back_button = self.create_back_button(callback_data=back_button_callback)
+                markup.add(back_button)
 
-        try:
-            self.bot.send_photo(chat_id=chat_id, photo=photo, caption=text, reply_markup=markup, parse_mode="HTML")
-        except:
-            self.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup, parse_mode="HTML")
+        self.send_message(call, text=text, photo=photo, reply_markup=markup)
 
     def send_order_status_notification(self, chat_id, order_id, text=None):
         order = self.data.get_order(where={"OrderID":order_id})[0]
@@ -177,10 +194,12 @@ class Order(Section):
 
         if completion is True:
             text = self.data.message.order_completion_confirmation
-            confirm_btn_callback = self.form_order_callback(action="ConfirmationInstruction", order_id=order_id)
+            confirm_btn_callback = self.form_order_callback(action="ConfirmationInstruction", order_id=order_id, 
+                                                            prev_msg_action="Edit")
         if rejection is True:
             text = self.data.message.order_rejection_confirmation
-            confirm_btn_callback = self.form_order_callback(action="RejectReason", order_id=order_id)
+            confirm_btn_callback = self.form_order_callback(action="RejectReason", order_id=order_id, 
+                                                            prev_msg_action="Edit")
         confirm_button = InlineKeyboardButton(text=confirm_btn_text, callback_data=confirm_btn_callback)
         reject_btn_callback = self.form_order_callback(action="Description", order_id=order_id, prev_msg_action="Delete")
         reject_button = InlineKeyboardButton(text=reject_btn_text, callback_data=reject_btn_callback)
@@ -200,10 +219,6 @@ class Order(Section):
                                                        chat_id_=chat_id, order_id=order_id)
 
     def send_reject_reason(self, call, order_id):
-        chat_id = call.message.chat.id
-        message_id = call.message.message_id
-
-        self.bot.delete_message(chat_id, message_id)
 
         text = self.data.message.order_choose_rejection_reason
         markup = InlineKeyboardMarkup()
@@ -211,11 +226,11 @@ class Order(Section):
         reasons = self.data.message.button_owner_reject_reasons
         for index, reason in enumerate(reasons):
             btn_text = reason
-            btn_callback = self.form_redaction_callback(action="CloseOrder", order_id=order_id, reserved=index)
+            btn_callback = self.form_redaction_callback(action="CloseOrder", order_id=order_id, rejection_reason_index=index)
             btn = InlineKeyboardButton(text=btn_text, callback_data=btn_callback)
             markup.add(btn)
 
-        self.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
+        self.send_message(call=call, text=text, reply_markup=markup)
 
     def process_order_confirmation(self, message, **kwargs):
         chat_id = kwargs["chat_id_"]
@@ -251,14 +266,7 @@ class Order(Section):
         send_to_redaction_btn = InlineKeyboardButton(text=send_to_redaction_btn_text, callback_data=send_to_redaction_btn_callback)
         markup.add(send_to_redaction_btn)
 
-        self.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
-
-    def edit_previous_message(self, call):
-        chat_id = call.message.chat.id
-        message_id = call.message.message_id
-        prev_msg_action = call.data.split(";")[-1]
-        if prev_msg_action == "Delete":
-            self.bot.delete_message(chat_id, message_id)        
+        self.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)      
 
     def get_all_orders(self, owner):
         """GET ALL ORDERS WHERE STATUS > 0
@@ -307,6 +315,12 @@ class Order(Section):
         order_id_title = self.data.message.order_description_order_id
         order_id = order.OrderID
         text += f"{order_id_title}\n{order_id}\n\n"
+
+        # Post Link
+        if order.Status >= 2:
+            post_statistic = self.data.get_post_statistic(where={"PostStatisticID":order.PostStatisticID})[0]
+            post_statistic_link = post_statistic.PostLink
+            text += f"<b>{self.data.message.order_description_post_link}</b> - {post_statistic_link}\n"
 
         # Order Status
         order_status_title = self.data.message.order_description_status
