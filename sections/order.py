@@ -25,7 +25,7 @@ class Order(Section):
             self.send_order_list(call=call)
         
         elif action == "ConfirmationInstruction":
-            self.send_confirmation_instruction(call=call, order_id=order_id)
+            self.send_confirmation_instruction(message=call.message, order_id=order_id)
 
         elif action == "Reject":
             self.send_confirmation(call=call, order_id=order_id, rejection=True)
@@ -112,7 +112,7 @@ class Order(Section):
 
         # if list is called from main menu than send "Back" button
         if call is not None:
-            back_button_callback = self.form_main_callback(action="Start", prev_msg_action="Edit")
+            back_button_callback = self.form_account_callback(action="Cabinet", prev_msg_action="Edit")
             back_button = self.create_back_button(callback_data=back_button_callback)
             markup.add(back_button)
         else:
@@ -208,10 +208,10 @@ class Order(Section):
 
         self.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
 
-    def send_confirmation_instruction(self, call, order_id, delete=True):
-        chat_id = call.message.chat.id
+    def send_confirmation_instruction(self, message, order_id, delete=True):
+        chat_id = message.chat.id
         if delete:
-            self.bot.delete_message(chat_id=chat_id, message_id=call.message.message_id)
+            self.bot.delete_message(chat_id=chat_id, message_id=message.message_id)
         text = self.data.message.order_completion_confirmation_instruction
 
         self.bot.send_message(chat_id=chat_id, text=text)
@@ -238,7 +238,7 @@ class Order(Section):
 
         # if owner doesn't FORWARD a post
         if message.forward_from_chat is None or message.forward_from_chat.type != "channel":
-            self.send_confirmation_instruction(chat_id, order_id, delete=False)
+            self.send_confirmation_instruction(message, order_id, delete=False)
             return
 
         # collect all required info about post
@@ -247,7 +247,7 @@ class Order(Section):
         try:
             post_text = message.text if content_type == "text" else message.caption
         except: # if owner forward a message that does not contain neither photo or text
-            self.send_confirmation_instruction(chat_id, order_id, delete=False)
+            self.send_confirmation_instruction(message, order_id, delete=False)
         post_time = datetime.fromtimestamp(message.forward_date)
         post_link = f"https://t.me/{message.forward_from_chat.username}/{post_id}"
         post_views = 0

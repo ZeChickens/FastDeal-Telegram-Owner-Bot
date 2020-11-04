@@ -107,7 +107,7 @@ class Channel(Section):
 
         # if list is called from main menu than send "Back" button
         if call is not None:
-            back_button_callback = self.form_main_callback(action="Start", prev_msg_action="Edit")
+            back_button_callback = self.form_account_callback(action="Cabinet", prev_msg_action="Edit")
             back_button = self.create_back_button(callback_data=back_button_callback)
             markup.add(back_button)
         else:

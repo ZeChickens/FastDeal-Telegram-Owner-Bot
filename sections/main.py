@@ -25,28 +25,27 @@ class Main(Section):
         Specify chat_id if it called through command, otherwise
         specify call if it called after button pressed.
         """
-        text = self.data.message.start_registered_false
-        markup = InlineKeyboardMarkup()
-
-        # Channels button
-        channels_btn_text = self.data.message.button_channel_my
-        channels_btn_callback = self.form_channel_callback(action="List", prev_msg_action="Edit")
-        channels_btn = InlineKeyboardButton(text=channels_btn_text, callback_data=channels_btn_callback)
-        markup.add(channels_btn)     
-
-        # Orders button
-        orders_btn_text = self.data.message.button_order_my
-        orders_btn_callback = self.form_order_callback(action="List", order_id=None, prev_msg_action="Edit")
-        orders_btn = InlineKeyboardButton(text=orders_btn_text, callback_data=orders_btn_callback)
-        markup.add(orders_btn)       
-
-        # Add Channel button
-        #channel_add_btn_text = self.data.message.button_channel_add_new
-        #channel_add_btn_callback = "Channel;Add;None"
-        #channel_add_btn = InlineKeyboardButton(text=channel_add_btn_text, callback_data=channel_add_btn_callback)
-        #markup.add(channel_add_btn)
+        text = self._form_text_main_manu(chat_id)
+        markup = self._create_markup_main_menu()
             
         if chat_id is not None:
             self.bot.send_message(chat_id, text=text, reply_markup=markup)
         else:
             self.send_message(call, text=text, reply_markup=markup)
+
+    def _create_markup_main_menu(self):
+        markup = InlineKeyboardMarkup()
+
+        # Account button
+        account_btn_text = self.data.message.button_account_cabinet
+        account_btn_callback = self.form_account_callback(action="Cabinet", prev_msg_action="Edit")
+        account_btn = InlineKeyboardButton(text=account_btn_text, callback_data=account_btn_callback)
+        markup.add(account_btn)
+
+        return markup
+
+
+    def _form_text_main_manu(self, chat_id):
+        text = self.data.message.start_registered_false
+
+        return text

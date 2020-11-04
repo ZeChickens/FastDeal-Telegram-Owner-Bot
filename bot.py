@@ -9,6 +9,7 @@ from sections.main import Main
 from sections.channel import Channel
 from sections.order import Order
 from sections.redaction import Redaction
+from sections.account import Account
 
 import logging
 import flask
@@ -47,6 +48,7 @@ main_menu = Main(data=data)
 order = Order(data=data, client=client)
 channel = Channel(data=data, client=client)
 redaction = Redaction(data=data, order=order)
+account = Account(data=data)
 
 app = flask.Flask(__name__)
 
@@ -124,7 +126,7 @@ def handle_order_query(call):
     except:
         oops(call, current_frame=error_logging.currentframe())
 
-@bot.callback_query_handler(func=lambda call: "Redaction" in call.data)
+@bot.callback_query_handler(func=lambda call: "Redaction" in call.data.split(";")[0])
 def redaction_decision(call):
     system.clear(chat_id=call.message.chat.id)
     system.update_client_interaction_time(call.message)
@@ -141,6 +143,16 @@ def handle_channel_query(call):
     
     try:
         channel.process_callback(call)
+    except:
+        oops(call, current_frame=error_logging.currentframe())
+
+@bot.callback_query_handler(func=lambda call: "Account" in call.data.split(";")[0])
+def handle_account_query(call):
+    system.clear(chat_id=call.message.chat.id)
+    system.update_client_interaction_time(call.message)
+
+    try:
+        account.process_callback(call)
     except:
         oops(call, current_frame=error_logging.currentframe())
 

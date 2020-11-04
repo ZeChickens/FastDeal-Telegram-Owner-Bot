@@ -106,12 +106,22 @@ class Redaction(Section):
         #update order status
         self.data.update_order(set_={"Status":3}, where={"OrderID":order.OrderID})
 
+        # update order account balance
+        price = channel.Price
+        owner_account = self.data.get_owner_account(where={"OwnerAccountID":owner.OwnerAccountID})[0]
+        current_balance = owner_account.Balance
+        new_balance = current_balance + price
+        self.data.update_owner_account(set_={"Balance":new_balance}, where={"OwnerAccountID":owner.OwnerAccountID})
+
         #redaction
         notify_another_bot_text = self.data.message.redaction_finished_order(order_id)
         self.bot.send_message(chat_id=self.REDACTION_CHAT_ID, text=notify_another_bot_text)
 
         #owner
         self.order.send_order_status_notification(chat_id=owner_chat_id, order_id=order_id)
+        self.bot.send_message(chat_id=owner_chat_id, 
+                              text=f"На ваш баланс зараховано <b>{price}грн</b>!\nДякую, що ти зі мною!",
+                              parse_mode="HTML")
 
     def reject_order(self, call, order_id):
         self.bot.edit_message_reply_markup(chat_id=self.REDACTION_CHAT_ID, message_id=call.message.message_id, reply_markup=None)

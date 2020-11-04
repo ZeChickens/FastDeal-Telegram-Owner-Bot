@@ -23,17 +23,23 @@ class System:
         last_interaction = register_date
 
         try:
-            client_registered = len(self.data.get_owner(where={"ChatID":chat_id})) == 1
+            owner_registered = len(self.data.get_owner(where={"ChatID":chat_id})) >= 1
         except:
             error_logging.send_error_info_message(bot=self.bot, current_frame=error_logging.currentframe(), additional_info=None)
             return
 
         if chat_id == self.REDACTION_CHAT_ID:
             return
-        if not client_registered:
+        if not owner_registered:
+            self.data.add_owner_account(balance=0)
+            owner_account_id = self.data.get_owner_account(order_by={"OwnerAccountID":"DESC"})[0].OwnerAccountID
+
             self.data.add_owner(chat_id=chat_id, nickname=username, name=name,
                                  surname=surname, register_date=register_date, 
-                                 last_interaction_time=last_interaction)
+                                 last_interaction_time=last_interaction, 
+                                 owner_account_id=owner_account_id)
+
+            
 
     def update_client_interaction_time(self, message):
         date = datetime.now()

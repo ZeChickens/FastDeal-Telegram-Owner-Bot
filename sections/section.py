@@ -25,6 +25,9 @@ class Section:
     def form_redaction_callback(self, action, order_id, rejection_reason_index=None, prev_msg_action=None):
         return f"Redaction;{action};{order_id};{rejection_reason_index};{prev_msg_action}"
 
+    def form_account_callback(self, action, card_id=None, withdraw_id=None, prev_msg_action=None):
+        return f"Account;{action};{card_id};{withdraw_id};{prev_msg_action}"
+
     #########
     # Buttons
     #########
@@ -32,8 +35,8 @@ class Section:
     def create_delete_button(self):
         return InlineKeyboardButton(text="❌", callback_data="DELETE")
 
-    def create_back_button(self, callback_data):
-        text = self.data.message.button_back
+    def create_back_button(self, callback_data, custom_btn_text=None):
+        text = self.data.message.button_back if custom_btn_text is None else custom_btn_text
         return InlineKeyboardButton(text=text, callback_data=callback_data)
 
     ##################
